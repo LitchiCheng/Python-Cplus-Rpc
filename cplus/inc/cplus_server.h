@@ -9,10 +9,13 @@
 class CplusServer
 {
 public:
-    CplusServer();
+    CplusServer(std::string addr);
     ~CplusServer();
+    void run();
 private:
-    /* data */
+    zmq::context_t _ctx{(1)};
+    zmq::socket_t _socket;
+    std::string _addr{"tcp://*:5555"};
 };
 
 #endif //_CPLUS_SERVER_H_
