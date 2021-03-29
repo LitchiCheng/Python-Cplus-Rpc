@@ -1,13 +1,15 @@
 project(Python-Cplus-Rpc)
 cmake_minimum_required(VERSION 2.8)
 
-add_definitions(-std=c++11 -DZMQ_STATIC)
+# -std=c++11
+add_definitions( -DZMQ_STATIC)
 
 add_subdirectory(deps/zeromq-4.2.1)
 
 include_directories(
     deps/zeromq-4.2.1/include
-	cplus/inc
+    cplus/inc
+    deps/json
 )
 
 # server app

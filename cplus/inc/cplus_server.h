@@ -6,16 +6,117 @@
 #include <string>
 #include "zmq.hpp"
 
+#include <vector>
+#include <sstream>
+#include <algorithm>
+#include <cstdint>
+#include <utility>
+#include <tuple>
+
+#include "json.hpp"
+using json = nlohmann::json;
+
+template<typename T>
+struct type_xx{	typedef T type; };
+
+template<>
+struct type_xx<void>{ typedef int8_t type; };
+
+// 用tuple做参数调用函数模板类
+template<typename Function, typename Tuple, std::size_t... Index>
+decltype(auto) invoke_impl(Function&& func, Tuple&& t, std::index_sequence<Index...>){
+	return func(std::get<Index>(std::forward<Tuple>(t))...);
+}
+
+template<typename Function, typename Tuple>
+decltype(auto) invoke(Function&& func, Tuple&& t){
+	constexpr auto size = std::tuple_size<typename std::decay<Tuple>::type>::value;
+	return invoke_impl(std::forward<Function>(func), std::forward<Tuple>(t), std::make_index_sequence<size>{});
+}
+
+// 调用帮助类，主要用于返回是否void的情况
+template<typename R, typename F, typename ArgsTuple>
+typename std::enable_if<std::is_same<R, void>::value, typename type_xx<R>::type >::type
+call_helper(F f, ArgsTuple args) {
+	invoke(f, args);
+	return 0;
+}
+
+template<typename R, typename F, typename ArgsTuple>
+typename std::enable_if<!std::is_same<R, void>::value, typename type_xx<R>::type >::type
+call_helper(F f, ArgsTuple args) {
+	return invoke(f, args);
+}
+
 class CplusServer
 {
 public:
     CplusServer(std::string addr);
     ~CplusServer();
     void run();
+
+    template<typename F>
+	void callproxy(F fun, json* ret, json& rec);
+
+	template<typename F, typename S>
+	void callproxy(F fun, S* s, json* ret, json& rec);
+
+	// 函数指针
+	template<typename R, typename... Params>
+	void callproxy_(R(*func)(Params...), json* ret, json& rec) {
+		callproxy_(std::function<R(Params...)>(func), ret, rec);
+	}
+
+	// 类成员函数指针
+	template<typename R, typename C, typename S, typename... Params>
+	void callproxy_(R(C::* func)(Params...), S* s, json* ret, json& rec) {
+
+		using args_type = std::tuple<typename std::decay<Params>::type...>;
+
+		constexpr auto N = std::tuple_size<typename std::decay<args_type>::type>::value;
+		args_type args;
+        for(int i = 0; i < N; i++){
+            std::get<i>(args) = rec["method_args"][i];
+        }
+
+		auto ff = [=](Params... ps)->R {
+			return (s->*func)(ps...);
+		};
+		typename type_xx<R>::type r = call_helper<R>(ff, args);
+
+        (*ret)["res"] = r;
+	}
+
+	// functional
+	template<typename R, typename... Params>
+	void callproxy_(std::function<R(Params... ps)> func, json* ret, json& rec) {
+		
+		using args_type = std::tuple<typename std::decay<Params>::type...>;
+
+		constexpr auto N = std::tuple_size<typename std::decay<args_type>::type>::value;
+		args_type args;
+        for(int i = 0; i < N; i++){
+            std::get<i>(args) = rec["method_args"][i];
+        }
+
+		typename type_xx<R>::type r = call_helper<R>(func, args);
+
+		(*ret)["res"] = r;
+	}
+
+    template<typename F>
+	void bind(std::string name, F func);
+
+	template<typename F, typename S>
+	void bind(std::string name, F func, S* s);
+    
 private:
+    json* call(std::string name, json& method_args);
     zmq::context_t _ctx{(1)};
     zmq::socket_t _socket;
     std::string _addr{"tcp://*:5555"};
+    std::map<std::string, std::function<void(json*, json&)>> _handlers;
 };
+
 
 #endif //_CPLUS_SERVER_H_
