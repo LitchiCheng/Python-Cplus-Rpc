@@ -39,7 +39,8 @@ test.connect("tcp://127.0.0.1:5555")
 
 test2 = zmqClient()
 
-res = test.add(1, "3333", c=3)
+res = test.add(1, 2, c=3)
+# print(res)
 print(f'res: [{res}]')
 
 
