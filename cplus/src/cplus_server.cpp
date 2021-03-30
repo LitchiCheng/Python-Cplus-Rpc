@@ -25,34 +25,22 @@ CplusServer::~CplusServer(){
 void CplusServer::run(){
     Test a;
     bind("add", &Test::add, &a);
+    
     while (true) {
         zmq::message_t request;
-        // 等待客户端请求
         _socket.recv (&request);
-
-        std::string json_str = (char*)request.data();
-        try
-        {
+        std::string json_str = std::string(static_cast<char*>(request.data()), request.size());
+        try{
             json recv_data = json::parse(json_str);
-            // cout << " " << recv_data["method_name"] << endl;
             json* ret = call(recv_data["method_name"], recv_data);
-            cout << "ret is " << (*ret)["res"] << endl;
-            // 应答World
-            zmq::message_t reply;
-            memcpy ((void *) reply.data (), ret->dump().c_str(), sizeof((char*)(ret)));
-            cout << " reply data is " << (char*)reply.data() << endl;
+            std::string s = ret->dump();  
+            zmq::message_t reply (s.size());
+            memcpy(reply.data(), (s.c_str()), (s.size()));
+            _socket.send(reply);
             delete ret;
-        }
-        catch(const std::exception& e)
-        {
+        }catch(const std::exception& e){
             std::cerr << e.what() << '\n';
         }
-        
-        
-        json dd;
-        dd["res"] = 3;
-        _socket.send (dd.dump().c_str(), strlen(dd.dump().c_str()));
-        
     }
 }
 
@@ -74,7 +62,7 @@ inline json* CplusServer::call(std::string name, json& method_args){
 		(*ret)["res"] = 0;
 		return ret;
 	}else{
-        cout << "find function " << endl;
+        // cout << "find function " << endl;
     }
 	auto fun = _handlers[name];
 	fun(ret, method_args);

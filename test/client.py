@@ -13,7 +13,6 @@ class zmqClient(object):
         self.socket.connect(addr)
     
     def send(self, data):
-        print("send ..........." + str(data))
         self.socket.send(data)
 
     def recv(self):
@@ -38,10 +37,14 @@ test = rpcClient()
 test.connect("tcp://127.0.0.1:5555")
 
 test2 = zmqClient()
+xx = 0
 
-res = test.add(1, 2, c=3)
-# print(res)
-print(f'res: [{res}]')
-
+while(True):
+    xx += 1
+    res = test.add(xx, 2, c=3)
+    reply = json.loads(res.decode())
+    print(str(time.asctime(time.localtime(time.time()))))
+    print(reply["res"])
+    time.sleep(0.001)
 
 

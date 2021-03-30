@@ -18,35 +18,35 @@
 using json = nlohmann::json;
 using namespace std;
 
-template<typename T>
-struct type_xx{	typedef T type; };
+namespace helpUtility
+{
+	template<typename T>
+	struct type_xx{	typedef T type; };
 
-template<>
-struct type_xx<void>{ typedef int8_t type; };
+	template<typename Function, typename Tuple, std::size_t... Index>
+	decltype(auto) invoke_impl(Function&& func, Tuple&& t, std::index_sequence<Index...>){
+		return func(std::get<Index>(std::forward<Tuple>(t))...);
+	}
 
-template<typename Function, typename Tuple, std::size_t... Index>
-decltype(auto) invoke_impl(Function&& func, Tuple&& t, std::index_sequence<Index...>){
-	return func(std::get<Index>(std::forward<Tuple>(t))...);
-}
+	template<typename Function, typename Tuple>
+	decltype(auto) invoke(Function&& func, Tuple&& t){
+		constexpr auto size = std::tuple_size<typename std::decay<Tuple>::type>::value;
+		return invoke_impl(std::forward<Function>(func), std::forward<Tuple>(t), std::make_index_sequence<size>{});
+	}
 
-template<typename Function, typename Tuple>
-decltype(auto) invoke(Function&& func, Tuple&& t){
-	constexpr auto size = std::tuple_size<typename std::decay<Tuple>::type>::value;
-	return invoke_impl(std::forward<Function>(func), std::forward<Tuple>(t), std::make_index_sequence<size>{});
-}
+	template<typename R, typename F, typename ArgsTuple>
+	typename std::enable_if<std::is_same<R, void>::value, typename type_xx<R>::type >::type
+	call_helper(F f, ArgsTuple args) {
+		invoke(f, args);
+		return 0;
+	}
 
-template<typename R, typename F, typename ArgsTuple>
-typename std::enable_if<std::is_same<R, void>::value, typename type_xx<R>::type >::type
-call_helper(F f, ArgsTuple args) {
-	invoke(f, args);
-	return 0;
-}
-
-template<typename R, typename F, typename ArgsTuple>
-typename std::enable_if<!std::is_same<R, void>::value, typename type_xx<R>::type >::type
-call_helper(F f, ArgsTuple args) {
-	return invoke(f, args);
-}
+	template<typename R, typename F, typename ArgsTuple>
+	typename std::enable_if<!std::is_same<R, void>::value, typename type_xx<R>::type >::type
+	call_helper(F f, ArgsTuple args) {
+		return invoke(f, args);
+	}
+};
 
 class CplusServer
 {
@@ -79,8 +79,7 @@ private:
 		auto ff = [=](Params... ps)->R {
 			return (s->*func)(ps...);
 		};
-		typename type_xx<R>::type r = call_helper<R>(ff, args);
-		cout << "r is " << r << endl; 
+		typename helpUtility::type_xx<R>::type r = helpUtility::call_helper<R>(ff, args);
         (*ret)["res"] = r;
 	}
 
@@ -89,7 +88,7 @@ private:
 		using args_type = std::tuple<typename std::decay<Params>::type...>;
 		constexpr auto N = std::tuple_size<typename std::decay<args_type>::type>::value;
 		args_type args = get_tuple < args_type >(std::make_index_sequence<N>{}, rec);
-		typename type_xx<R>::type r = call_helper<R>(func, args);
+		typename helpUtility::type_xx<R>::type r = helpUtility::call_helper<R>(func, args);
 		(*ret)["res"] = r;
 	}
 
