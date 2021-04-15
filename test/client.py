@@ -34,7 +34,7 @@ class rpcClient(zmqClient, rpcStub):
     pass
 
 test = rpcClient()
-test.connect("tcp://127.0.0.1:5555")
+test.connect("ipc:///tmp/test0.ipc")
 
 test2 = zmqClient()
 xx = 0

@@ -6,7 +6,7 @@ using namespace std;
 
 int main(int argc, char const *argv[])
 {
-    CplusServer test_server("tcp://*:5555");
+    CplusServer test_server("ipc:///tmp/test0.ipc");
     test_server.run();
     return 0;
 }
