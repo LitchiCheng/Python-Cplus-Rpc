@@ -18,8 +18,20 @@ set(CPLUS_SERVER
     test/server.cpp
 )
 
+#python rpc server cpp client
+set(CPLUS_CLIENT
+    cplus/src/rpc_client.cpp
+    test/client.cpp
+)
+
 add_executable(CplusRpcServer ${CPLUS_SERVER})
 target_link_libraries(CplusRpcServer libzmq-static)
 if (UNIX)
 target_link_libraries(CplusRpcServer pthread)
+endif()
+
+add_executable(CplusRpcClient ${CPLUS_CLIENT})
+target_link_libraries(CplusRpcClient libzmq-static)
+if (UNIX)
+target_link_libraries(CplusRpcClient pthread)
 endif()
